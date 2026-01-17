@@ -16,19 +16,19 @@ const (
 // AppConfig represents the persistent application configuration.
 // It combines settings for LLMService and TextExtractor.
 type AppConfig struct {
-	LLM       LLMConfig       `toml:"llm"`
-	Extractor ExtractorConfig `toml:"extractor"`
+	LLM       LLMConfig       `toml:"llm" json:"llm"`
+	Extractor ExtractorConfig `toml:"extractor" json:"extractor"`
 }
 
 type LLMConfig struct {
-	BaseURL string `toml:"base_url"`
-	APIKey  string `toml:"api_key"`
-	Model   string `toml:"model"`
-	Prompt  string `toml:"prompt"`
+	BaseURL string `toml:"base_url" json:"base_url"`
+	APIKey  string `toml:"api_key" json:"api_key"`
+	Model   string `toml:"model" json:"model"`
+	Prompt  string `toml:"prompt" json:"prompt"`
 }
 
 type ExtractorConfig struct {
-	CJKOnly bool `toml:"cjk_only"`
+	CJKOnly bool `toml:"cjk_only" json:"cjk_only"`
 }
 
 // DefaultConfig returns the default configuration.

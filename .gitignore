@@ -27,6 +27,7 @@ Thumbs.db
 bin/
 out/
 miqt/
+native/
 
 # 开发工具
 .idea/
