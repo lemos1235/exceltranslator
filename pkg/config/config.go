@@ -18,6 +18,7 @@ const (
 type AppConfig struct {
 	LLM       LLMConfig       `toml:"llm" json:"llm"`
 	Extractor ExtractorConfig `toml:"extractor" json:"extractor"`
+	Log       LogConfig       `toml:"log" json:"log"`
 }
 
 type LLMConfig struct {
@@ -31,6 +32,11 @@ type ExtractorConfig struct {
 	CJKOnly bool `toml:"cjk_only" json:"cjk_only"`
 }
 
+type LogConfig struct {
+	Level   string `toml:"level" json:"level"`
+	Disable bool   `toml:"disable" json:"disable"`
+}
+
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *AppConfig {
 	return &AppConfig{
@@ -42,6 +48,10 @@ func DefaultConfig() *AppConfig {
 		},
 		Extractor: ExtractorConfig{
 			CJKOnly: false,
+		},
+		Log: LogConfig{
+			Level:   "INFO",
+			Disable: false,
 		},
 	}
 }

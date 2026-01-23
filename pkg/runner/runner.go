@@ -34,6 +34,8 @@ func RunTranslation(ctx context.Context, inputFile, outputFile string, cb Transl
 func RunTranslationWithConfig(ctx context.Context, inputFile, outputFile string, cfg *config.AppConfig, cb TranslationCallbacks) error {
 	// Initialize logger
 	logInstance := logger.NewLogger(100) // Max 100 lines for in-memory log
+	logInstance.SetLevel(logger.ParseLevel(cfg.Log.Level))
+	logInstance.SetDisabled(cfg.Log.Disable)
 
 	// Initialize LLM service
 	llmCfg := llmservice.LLMServiceConfig{

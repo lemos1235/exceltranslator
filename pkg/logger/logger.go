@@ -12,9 +12,9 @@ import (
 type LogLevel int
 
 const (
-	INFO LogLevel = iota
+	ERROR LogLevel = iota
 	WARN
-	ERROR
+	INFO
 	DEBUG
 	TRACE
 )
@@ -26,6 +26,7 @@ type Logger struct {
 	stdLogger   *log.Logger // Standard library logger for stdout
 	maxLines    int         // Max number of lines to store
 	minLevel    LogLevel    // Minimum level to output/store
+	disabled    bool        // Whether logging is disabled
 }
 
 // NewLogger creates a new Logger instance.
@@ -45,6 +46,13 @@ func (l *Logger) SetLevel(level LogLevel) {
 	l.minLevel = level
 }
 
+// SetDisabled sets whether logging is disabled.
+func (l *Logger) SetDisabled(disabled bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.disabled = disabled
+}
+
 // GetLevel returns the current minimum log level.
 func (l *Logger) GetLevel() LogLevel {
 	l.mu.Lock()
@@ -57,7 +65,7 @@ func (l *Logger) logf(level LogLevel, format string, v ...interface{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if levelRank(level) < levelRank(l.minLevel) {
+	if l.disabled || levelRank(level) < levelRank(l.minLevel) {
 		return
 	}
 
@@ -130,6 +138,24 @@ func (l LogLevel) String() string {
 		return "TRACE"
 	default:
 		return "UNKNOWN"
+	}
+}
+
+// ParseLevel converts a string representation of a log level to its LogLevel equivalent.
+func ParseLevel(level string) LogLevel {
+	switch strings.ToUpper(strings.TrimSpace(level)) {
+	case "TRACE":
+		return TRACE
+	case "DEBUG":
+		return DEBUG
+	case "INFO":
+		return INFO
+	case "WARN", "WARNING":
+		return WARN
+	case "ERROR":
+		return ERROR
+	default:
+		return INFO // Default to INFO
 	}
 }
 
