@@ -18,8 +18,6 @@ type TranslationEngine interface {
 type Translator interface {
 	// TranslateFileTexts 批量翻译文本数组
 	TranslateFileTexts(fileName string, texts []string) ([]string, error)
-	// TranslateFile 翻译文件
-	TranslateTextFile(filePath string) error
 }
 
 // TranslationCallbacks 定义翻译流程中的回调
@@ -93,9 +91,4 @@ func (t *LocalTranslator) TranslateFileTexts(fileName string, texts []string) ([
 	}
 
 	return translations, nil
-}
-
-// TranslateTextFile 翻译文本文件
-func (t *LocalTranslator) TranslateTextFile(filePath string) error {
-	return nil
 }

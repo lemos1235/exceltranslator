@@ -60,7 +60,7 @@ func RunTranslationWithConfig(ctx context.Context, inputFile, outputFile string,
 	fp.SetExtractorConfig(textextractor.ExtractorConfig{CJKOnly: cfg.Extractor.CJKOnly})
 
 	// Process file using the LocalTranslator
-	// processingErr := fp.ProcessFile(inputFile, outputFile, trans)
+	//processingErr := fp.ProcessFile(inputFile, outputFile, trans)
 	processingErr := fp.ProcessFileNew(inputFile, outputFile, trans)
 	if processingErr != nil {
 		logInstance.Errorf("File processing failed: %v", processingErr)

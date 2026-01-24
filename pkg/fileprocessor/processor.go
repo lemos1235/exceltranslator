@@ -282,7 +282,10 @@ func (fp *FileProcessor) ProcessFileNew(inputPath string, outputPath string, tra
 		}
 		if !info.IsDir() && strings.HasSuffix(path, ".itemsdat") {
 			fp.logger.Tracef("Translating data file: %s", path)
-			if err := trans.TranslateTextFile(path); err != nil {
+			relPath, _ := filepath.Rel(tempDir, path)
+			slashPath := filepath.ToSlash(relPath)
+			fileName := strings.TrimSuffix(slashPath, ".itemsdat")
+			if err := translateTextFile(fileName, path, trans); err != nil {
 				return err
 			}
 		}
@@ -363,6 +366,34 @@ func (fp *FileProcessor) ProcessFileNew(inputPath string, outputPath string, tra
 	}
 
 	fp.logger.Infof("Finished processing file (New Workflow): %s", outputPath)
+	return nil
+}
+
+func translateTextFile(fileName, filePath string, trans translator.Translator) error {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	var texts []string
+	if err := json.Unmarshal(content, &texts); err != nil {
+		return fmt.Errorf("failed to parse JSON from %s: %w", filePath, err)
+	}
+
+	translatedTexts, err := trans.TranslateFileTexts(fileName, texts)
+	if err != nil {
+		return err
+	}
+
+	output, err := json.Marshal(translatedTexts)
+	if err != nil {
+		return fmt.Errorf("failed to marshal translated texts: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, output, 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", filePath, err)
+	}
+
 	return nil
 }
 
