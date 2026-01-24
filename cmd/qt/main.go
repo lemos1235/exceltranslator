@@ -326,7 +326,6 @@ func (mw *MainWindow) startTranslation() {
 	mw.updateButtonStates()
 
 	mw.addLog("开始翻译...")
-	mw.addLog(fmt.Sprintf("输入文件: %s", inputFile))
 
 	mw.ctx, mw.cancel = context.WithCancel(context.Background())
 
@@ -360,7 +359,7 @@ func (mw *MainWindow) startTranslation() {
 					if mw.isTranslating {
 						mw.finishTranslation(false)
 					}
-					mw.addLogUnsafe(fmt.Sprintf("翻译失败: %s", friendlyMsg))
+					mw.addLog(fmt.Sprintf("翻译失败: %s", friendlyMsg))
 					if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 						qt.QMessageBox_Critical(mw.window.QWidget, "错误", fmt.Sprintf("翻译失败: %s", friendlyMsg))
 					}
@@ -368,7 +367,7 @@ func (mw *MainWindow) startTranslation() {
 					if mw.isTranslating {
 						mw.finishTranslation(true)
 					}
-					mw.addLogUnsafe("翻译完成!")
+					mw.addLog("翻译完成!")
 					mw.promptSaveFile()
 				}
 			})
@@ -377,7 +376,7 @@ func (mw *MainWindow) startTranslation() {
 		_ = runner.RunTranslation(mw.ctx, inputFile, tempFile, runner.TranslationCallbacks{
 			OnTranslated: func(original, translated string) {
 				mainthread.Wait(func() {
-					mw.addLogUnsafe(fmt.Sprintf("%s -> %s", original, translated))
+					mw.addLog(fmt.Sprintf("%s -> %s", original, translated))
 				})
 			},
 			OnProgress: func(phase string, done, total int) {
@@ -395,9 +394,9 @@ func (mw *MainWindow) startTranslation() {
 						return
 					}
 					if stage == "llm" {
-						mw.addLogUnsafe("翻译模型调用失败，请检查模型配置")
+						mw.addLog("翻译模型调用失败，请检查模型配置")
 					} else {
-						mw.addLogUnsafe(fmt.Sprintf("翻译失败（阶段: %s）", stage))
+						mw.addLog(fmt.Sprintf("翻译失败（阶段: %s）", stage))
 					}
 				})
 			},
@@ -470,9 +469,8 @@ QProgressBar::chunk { background-color: #F44336; border-radius: 3px; }
 	}
 }
 
-// addLogUnsafe 添加日志到界面（非线程安全版本）
-// 直接操作UI组件，必须在主线程中调用
-func (mw *MainWindow) addLogUnsafe(message string) {
+// addLog 添加日志到界面
+func (mw *MainWindow) addLog(message string) {
 	timestamp := time.Now().Format("15:04:05")
 	logMessage := fmt.Sprintf("[%s] %s", timestamp, message)
 
@@ -482,19 +480,6 @@ func (mw *MainWindow) addLogUnsafe(message string) {
 	mw.logTextEdit.InsertPlainText(logMessage + "\n")
 
 	mw.logTextEdit.EnsureCursorVisible()
-}
-
-// addLog 添加日志到界面（主线程调用版本）
-func (mw *MainWindow) addLog(message string) {
-	mw.addLogUnsafe(message)
-}
-
-// addLogFromGoroutine 从协程中添加日志（线程安全版本）
-// 使用mainthread.Wait确保UI更新在主线程中执行
-func (mw *MainWindow) addLogFromGoroutine(message string) {
-	mainthread.Wait(func() {
-		mw.addLogUnsafe(message)
-	})
 }
 
 // saveConfig 保存当前设置到配置文件

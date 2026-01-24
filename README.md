@@ -24,7 +24,7 @@ You can edit this configuration file to customize the application's behavior:
 base_url = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 api_key = 'sk-'
 model = 'qwen-flash'
-prompt = 'Translate to Simplified Chinese.Ignore if already Chinese. Keep all numbers and letters intact.'
+prompt = '翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。'
 
 [extractor]
 # Translate only CJK (Chinese, Japanese, Korean) text

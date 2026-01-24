@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	AppName    = "Excel-Translator"
-	ConfigName = "config.toml"
+	AppName  = "Excel-Translator"
+	FileName = "config.toml"
 )
 
 // AppConfig represents the persistent application configuration.
@@ -44,7 +44,7 @@ func DefaultConfig() *AppConfig {
 			BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
 			APIKey:  os.Getenv("DASHSCOPE_API_KEY"),
 			Model:   "qwen-flash",
-			Prompt:  "Translate to Simplified Chinese.Ignore if already Chinese. Keep all numbers and letters intact.",
+			Prompt:  "翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。",
 		},
 		Extractor: ExtractorConfig{
 			CJKOnly: false,
@@ -69,7 +69,7 @@ func getConfigPath() (string, error) {
 		return "", fmt.Errorf("failed to create config dir: %w", err)
 	}
 
-	return filepath.Join(appConfigDir, ConfigName), nil
+	return filepath.Join(appConfigDir, FileName), nil
 }
 
 // Load reads the configuration from the config file.

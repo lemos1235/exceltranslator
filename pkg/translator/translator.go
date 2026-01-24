@@ -3,6 +3,7 @@ package translator
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // TranslationEngine 定义翻译引擎接口，用于将原文转换成翻译结果
@@ -33,6 +34,8 @@ type LocalTranslator struct {
 	ctx       context.Context
 	engine    TranslationEngine
 	callbacks TranslationCallbacks
+	cache     map[string]string
+	mu        sync.RWMutex
 }
 
 // NewTranslator 创建一个新的 LocalTranslator 实例
@@ -41,6 +44,7 @@ func NewTranslator(ctx context.Context, engine TranslationEngine, callbacks Tran
 		ctx:       ctx,
 		engine:    engine,
 		callbacks: callbacks,
+		cache:     make(map[string]string),
 	}
 }
 
@@ -77,11 +81,29 @@ func (t *LocalTranslator) TranslateFileTexts(fileName string, texts []string) ([
 	totalItems := len(texts)
 
 	for i, text := range texts {
+		t.mu.RLock()
+		cached, found := t.cache[text]
+		t.mu.RUnlock()
+
+		if found {
+			translations = append(translations, cached)
+			// 报告进度
+			if t.callbacks.OnProgress != nil {
+				t.callbacks.OnProgress(fileName, i+1, totalItems)
+			}
+			continue
+		}
+
 		// 翻译单个文本项
 		translated, err := t.Translate(text)
 		if err != nil {
 			return nil, fmt.Errorf("translation failed for item %d in %s: %w", i, fileName, err)
 		}
+
+		t.mu.Lock()
+		t.cache[text] = translated
+		t.mu.Unlock()
+
 		translations = append(translations, translated)
 
 		// 报告进度
