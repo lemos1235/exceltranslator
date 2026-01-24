@@ -2,6 +2,7 @@ package fileprocessor
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"exceltranslator/pkg/logger" // Import the logger package
 	"exceltranslator/pkg/textextractor"
 	"exceltranslator/pkg/translator"
@@ -33,6 +34,24 @@ func NewFileProcessorWithLogger(log *logger.Logger) *FileProcessor {
 // SetExtractorConfig updates the configuration for the text extractor.
 func (fp *FileProcessor) SetExtractorConfig(config textextractor.ExtractorConfig) {
 	fp.extractor = textextractor.NewExtractor(config)
+}
+
+// needsTranslation determines if a file needs to be processed.
+func (fp *FileProcessor) needsTranslation(fileName string) bool {
+	if !strings.HasSuffix(fileName, ".xml") {
+		return false
+	}
+	// Common for DOCX and XLSX
+	if strings.Contains(fileName, "word/document.xml") ||
+		strings.Contains(fileName, "word/header") ||
+		strings.Contains(fileName, "word/footer") ||
+		strings.Contains(fileName, "xl/sharedStrings.xml") ||
+		strings.Contains(fileName, "xl/drawings/drawing") ||
+		strings.Contains(fileName, "xl/comments") ||
+		strings.Contains(fileName, "xl/workbook.xml") {
+		return true
+	}
+	return false
 }
 
 // ProcessFile processes the input docx/xlsx file and saves the translated version to outputPath.
@@ -168,4 +187,274 @@ func (fp *FileProcessor) processZipFile(f *zip.File, w *zip.Writer, trans transl
 	}
 
 	return nil
+}
+
+// ProcessFileNew implements the new translation workflow: Extract -> Translate -> Replace -> Pack.
+func (fp *FileProcessor) ProcessFileNew(inputPath string, outputPath string, trans translator.Translator) error {
+	fp.logger.Infof("Processing file (New Workflow): %s", inputPath)
+
+	// 1. Create temporary directory
+	tempDir, err := os.MkdirTemp("", "exceltranslator_")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir) // Clean up
+
+	fp.logger.Tracef("Created temp directory: %s", tempDir)
+
+	// 2. Unzip all files to tempDir
+	if err := unzipToDir(inputPath, tempDir); err != nil {
+		return fmt.Errorf("failed to unzip file: %w", err)
+	}
+
+	// 3. Step 1: Extract Text
+	// Walk through the temp directory
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, _ := filepath.Rel(tempDir, path)
+		// Fix for windows paths in zip if necessary, but relPath should be fine.
+		// Standardize separators to forward slashes for matching
+		slashPath := filepath.ToSlash(relPath)
+
+		if fp.needsTranslation(slashPath) {
+			fp.logger.Tracef("Extracting text from: %s", slashPath)
+
+			contentBytes, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			content := string(contentBytes)
+
+			cleanedContent, items, err := fp.extractor.Extract(content, slashPath)
+			if err != nil {
+				return err
+			}
+
+			// Replace original file with cleanedContent
+			// (Note: Currently Extract returns original content as cleanedContent if no modification logic exists in Extract)
+			if err := os.WriteFile(path, []byte(cleanedContent), info.Mode()); err != nil {
+				return err
+			}
+
+			if len(items) > 0 {
+				// Create xxx.xml.itemsidx
+				idxPath := path + ".itemsidx"
+				idxData, err := json.Marshal(items)
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(idxPath, idxData, 0644); err != nil {
+					return err
+				}
+
+				// Create xxx.xml.itemsdat
+				datPath := path + ".itemsdat"
+				var texts []string
+				for _, item := range items {
+					texts = append(texts, item.Text)
+				}
+				datData, err := json.Marshal(texts)
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(datPath, datData, 0644); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error during extraction phase: %w", err)
+	}
+
+	// 4. Step 2: Execute Translation
+	// Iterate all *.itemsdat files
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".itemsdat") {
+			fp.logger.Tracef("Translating data file: %s", path)
+			if err := trans.TranslateTextFile(path); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error during translation phase: %w", err)
+	}
+
+	// 5. Step 3: Execute Replacement
+	// Iterate all *.itemsidx files
+	err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".itemsidx") {
+			idxPath := path
+			xmlPath := strings.TrimSuffix(idxPath, ".itemsidx")
+			datPath := xmlPath + ".itemsdat"
+
+			fp.logger.Tracef("Applying translations to: %s", xmlPath)
+
+			// Read items
+			idxBytes, err := os.ReadFile(idxPath)
+			if err != nil {
+				return err
+			}
+			var items []textextractor.ExtractionItem
+			if err := json.Unmarshal(idxBytes, &items); err != nil {
+				return err
+			}
+
+			// Read translations
+			datBytes, err := os.ReadFile(datPath)
+			if err != nil {
+				return err
+			}
+			var translations []string
+			if err := json.Unmarshal(datBytes, &translations); err != nil {
+				return err
+			}
+
+			// Read XML content
+			xmlBytes, err := os.ReadFile(xmlPath)
+			if err != nil {
+				return err
+			}
+			xmlContent := string(xmlBytes)
+
+			// Get relative path for xmlType
+			relPath, _ := filepath.Rel(tempDir, xmlPath)
+			xmlType := filepath.ToSlash(relPath)
+
+			// Apply
+			newContent, err := fp.extractor.Apply(xmlContent, xmlType, items, translations)
+			if err != nil {
+				return err
+			}
+
+			// Write back
+			if err := os.WriteFile(xmlPath, []byte(newContent), 0644); err != nil {
+				return err
+			}
+
+			// Delete temp files
+			os.Remove(idxPath)
+			os.Remove(datPath)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error during replacement phase: %w", err)
+	}
+
+	// 6. Step 4: Pack
+	if err := zipDir(tempDir, outputPath); err != nil {
+		return fmt.Errorf("failed to pack output file: %w", err)
+	}
+
+	fp.logger.Infof("Finished processing file (New Workflow): %s", outputPath)
+	return nil
+}
+
+func unzipToDir(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		fpath := filepath.Join(dest, f.Name)
+
+		// Check for Zip Slip vulnerability
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", fpath)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func zipDir(srcDir, destZip string) error {
+	zipFile, err := os.Create(destZip)
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	w := zip.NewWriter(zipFile)
+	defer w.Close()
+
+	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Use forward slashes for zip files
+		relPath = filepath.ToSlash(relPath)
+
+		wWrapper, err := w.CreateHeader(&zip.FileHeader{
+			Name:     relPath,
+			Method:   zip.Deflate, // Use Deflate for compression
+			Modified: info.ModTime(),
+		})
+		if err != nil {
+			return err
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(wWrapper, f)
+		return err
+	})
 }
