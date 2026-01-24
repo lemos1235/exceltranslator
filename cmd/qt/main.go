@@ -499,19 +499,22 @@ func (mw *MainWindow) addLogFromGoroutine(message string) {
 
 // saveConfig 保存当前设置到配置文件
 func (mw *MainWindow) saveConfig() {
-	cfg := &config.AppConfig{
-		LLM: config.LLMConfig{
-			APIKey:  mw.apiKeyEdit.Text(),
-			BaseURL: mw.apiUrlEdit.Text(),
-			Model:   mw.modelEdit.Text(),
-			Prompt:  mw.promptEdit.ToPlainText(),
-		},
-		Extractor: config.ExtractorConfig{
-			CJKOnly: mw.onlyTranslateCJKCheck.IsChecked(),
-		},
+	// Load existing config to preserve fields not shown in UI (like Log)
+	cfg, err := config.Load()
+	if err != nil {
+		// If load fails, start with default config to ensure we have a valid structure
+		// This might lose hidden settings if the file is corrupted, but it's safer than crashing
+		cfg = config.DefaultConfig()
 	}
 
-	err := config.Save(cfg)
+	// Update fields from UI
+	cfg.LLM.APIKey = mw.apiKeyEdit.Text()
+	cfg.LLM.BaseURL = mw.apiUrlEdit.Text()
+	cfg.LLM.Model = mw.modelEdit.Text()
+	cfg.LLM.Prompt = mw.promptEdit.ToPlainText()
+	cfg.Extractor.CJKOnly = mw.onlyTranslateCJKCheck.IsChecked()
+
+	err = config.Save(cfg)
 	if err != nil {
 		qt.QMessageBox_Critical(mw.window.QWidget, "错误", fmt.Sprintf("保存配置失败: %v", err))
 	} else {

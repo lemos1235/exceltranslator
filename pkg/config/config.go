@@ -33,8 +33,8 @@ type ExtractorConfig struct {
 }
 
 type LogConfig struct {
-	Level   string `toml:"level" json:"level"`
-	Disable bool   `toml:"disable" json:"disable"`
+	Level    string `toml:"level" json:"level"`
+	Disabled bool   `toml:"disabled" json:"disabled"`
 }
 
 // DefaultConfig returns the default configuration.
@@ -50,8 +50,8 @@ func DefaultConfig() *AppConfig {
 			CJKOnly: false,
 		},
 		Log: LogConfig{
-			Level:   "INFO",
-			Disable: false,
+			Level:    "INFO",
+			Disabled: false,
 		},
 	}
 }

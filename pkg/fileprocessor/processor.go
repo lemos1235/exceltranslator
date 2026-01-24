@@ -120,7 +120,7 @@ func (fp *FileProcessor) processZipFile(f *zip.File, w *zip.Writer, trans transl
 		fp.logger.Tracef("Extracting and translating text from %s", f.Name)
 
 		// 1. Extract text
-		extractedContent, items, err := fp.extractor.Extract(content, f.Name)
+		cleanedContent, items, err := fp.extractor.Extract(content, f.Name)
 		if err != nil {
 			fp.logger.Errorf("Extraction failed for %s: %v", f.Name, err)
 			return fmt.Errorf("extraction failed for %s: %w", f.Name, err)
@@ -138,7 +138,7 @@ func (fp *FileProcessor) processZipFile(f *zip.File, w *zip.Writer, trans transl
 		}
 
 		// 3. Apply replacements
-		newContent, err = fp.extractor.Apply(extractedContent, f.Name, items, translations)
+		newContent, err = fp.extractor.Apply(cleanedContent, f.Name, items, translations)
 		if err != nil {
 			fp.logger.Errorf("Replacement failed for %s: %v", f.Name, err)
 			return fmt.Errorf("replacement failed for %s: %w", f.Name, err)
