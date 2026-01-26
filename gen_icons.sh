@@ -1,0 +1,1 @@
+png2icons ./appicon.png icon -allwe

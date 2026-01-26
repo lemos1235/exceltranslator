@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -64,7 +65,9 @@ func NewMainWindow() *MainWindow {
 	mw.window.SetMinimumSize(qt.NewQSize2(600, 400))
 	mw.window.Resize(800, 400)
 
-	mw.createMenuBar()
+	if runtime.GOOS == "darwin" {
+		mw.createMenuBar()
+	}
 
 	centralWidget := qt.NewQWidget2()
 	mw.window.SetCentralWidget(centralWidget)
@@ -154,7 +157,8 @@ func (mw *MainWindow) createTranslationPage() *qt.QWidget {
 	leftLayout.AddStretch()
 
 	rightGroup := qt.NewQGroupBox4("日志", page)
-	rightGroup.SetStyleSheet(`
+	if runtime.GOOS == "darwin" {
+		rightGroup.SetStyleSheet(`
 QGroupBox::title {
 	subcontrol-origin: margin;
 	subcontrol-position: top left;
@@ -162,6 +166,7 @@ QGroupBox::title {
 	left: 12px;
 }
 `)
+	}
 	rightLayout := qt.NewQVBoxLayout2()
 	rightLayout.SetContentsMargins(4, 8, 4, 8)
 	rightLayout.SetSpacing(2)
@@ -173,6 +178,8 @@ QGroupBox::title {
 	mw.logTextEdit.SetStyleSheet(`
 QTextEdit {
 	background-color: transparent;
+	box-shadow: none;
+	padding: 0px;
 }
 `)
 	rightLayout.AddWidget(mw.logTextEdit.QWidget)
@@ -571,8 +578,9 @@ func copyFile(src, dst string) error {
 func (mw *MainWindow) createMenuBar() {
 	menuBar := qt.NewQMenuBar2()
 	mw.window.SetMenuBar(menuBar)
-	appMenu := menuBar.AddMenuWithTitle("Excel LocalTranslator")
+	appMenu := menuBar.AddMenuWithTitle("File")
 	preferencesAction := qt.NewQAction2("Preferences...")
+	preferencesAction.SetMenuRole(qt.QAction__PreferencesRole)
 	preferencesAction.SetShortcutsWithShortcuts(qt.QKeySequence__Preferences)
 	preferencesAction.OnTriggered(func() {
 		mw.showSettingsWindow()
