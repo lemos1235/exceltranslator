@@ -38,7 +38,8 @@ To install dependencies, please refer to https://github.com/mappu/miqt
 To compile and package:
 
 ```bash
-sh ./build_macapp.sh
+chmod +x ./build_macapp.sh
+./build_macapp.sh
 ```
 
 Screenshot:

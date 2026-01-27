@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"log"
@@ -18,6 +19,9 @@ import (
 	"exceltranslator/pkg/config"
 	"exceltranslator/pkg/runner"
 )
+
+//go:embed icon.png
+var appIconData []byte
 
 // MainWindow Excel翻译器的主窗口，包含所有UI组件和状态管理
 type MainWindow struct {
@@ -179,6 +183,7 @@ QGroupBox::title {
 QTextEdit {
 	background-color: transparent;
 	box-shadow: none;
+	border: none;
 	padding: 0px;
 }
 `)
@@ -691,6 +696,13 @@ func (mw *MainWindow) loadConfigToSettings() {
 // main 函数是程序的入口点
 func main() {
 	qt.NewQApplication(os.Args)
+
+	// 设置应用程序图标（在 Windows 上显示在标题栏和任务栏）
+	pixmap := qt.NewQPixmap()
+	if pixmap.LoadFromDataWithData(appIconData) {
+		icon := qt.NewQIcon2(pixmap)
+		qt.QGuiApplication_SetWindowIcon(icon)
+	}
 
 	window := NewMainWindow()
 	window.window.Show()

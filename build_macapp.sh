@@ -2,7 +2,7 @@ NAME="Excel Translator"
 BINDIR=bin
 GOFILES=cmd/qt/*.go
 
-APP="out/$NAME.app"
+APP="out/macos/$NAME.app"
 ICON=icon.icns
 QT=/opt/homebrew/opt/qt
 
