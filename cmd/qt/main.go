@@ -23,6 +23,9 @@ import (
 //go:embed icon.png
 var appIconData []byte
 
+//go:embed style.qss
+var styleQssData []byte
+
 // MainWindow Excel翻译器的主窗口，包含所有UI组件和状态管理
 type MainWindow struct {
 	window *qt.QMainWindow
@@ -695,7 +698,10 @@ func (mw *MainWindow) loadConfigToSettings() {
 
 // main 函数是程序的入口点
 func main() {
-	qt.NewQApplication(os.Args)
+	app := qt.NewQApplication(os.Args)
+	if runtime.GOOS != "darwin" {
+		app.SetStyleSheet(string(styleQssData))
+	}
 
 	// 设置应用程序图标（在 Windows 上显示在标题栏和任务栏）
 	pixmap := qt.NewQPixmap()
