@@ -23,8 +23,13 @@ import (
 //go:embed icon.png
 var appIconData []byte
 
+var useEmbeddedStyle = true
+
 //go:embed style.qss
-var styleQssData []byte
+var styleLightQssData []byte
+
+//go:embed style_dark.qss
+var styleDarkQssData []byte
 
 // MainWindow Excel翻译器的主窗口，包含所有UI组件和状态管理
 type MainWindow struct {
@@ -46,6 +51,7 @@ type MainWindow struct {
 	// 主界面控制组件
 	progressBar *qt.QProgressBar // 翻译进度条
 	logTextEdit *qt.QTextEdit    // 日志显示区域
+	logGroup    *qt.QGroupBox    // 日志区域容器
 	startBtn    *qt.QPushButton  // 开始翻译按钮
 	stopBtn     *qt.QPushButton  // 停止翻译按钮
 
@@ -63,13 +69,23 @@ type MainWindow struct {
 	stateMutex sync.Mutex // 保护翻译状态的互斥锁
 }
 
+// isSystemDarkTheme 检测系统是否为深色主题（无需widget）
+// 使用应用程序的默认调色板来判断
+func isSystemDarkTheme() bool {
+	palette := qt.QGuiApplication_Palette()
+	bgColor := palette.ColorWithCr(qt.QPalette__Window)
+	// 使用标准 RGB 加权公式计算亮度
+	brightness := (bgColor.Red()*299 + bgColor.Green()*587 + bgColor.Blue()*114) / 1000
+	return brightness <= 128
+}
+
 // NewMainWindow 创建主窗口实例，初始化所有UI组件和布局
 func NewMainWindow() *MainWindow {
 	mw := &MainWindow{}
 
 	mw.window = qt.NewQMainWindow2()
 	mw.window.SetWindowTitle("Excel 翻译器")
-	mw.window.SetMinimumSize(qt.NewQSize2(600, 400))
+	mw.window.SetMinimumSize(qt.NewQSize2(404, 342))
 
 	// 从配置加载并恢复窗口大小
 	if cfg, err := config.Load(); err == nil && cfg.Window.Width > 0 && cfg.Window.Height > 0 {
@@ -87,7 +103,7 @@ func NewMainWindow() *MainWindow {
 
 	mainLayout := qt.NewQVBoxLayout2()
 	mainLayout.SetSpacing(20)
-	mainLayout.SetContentsMargins(12, 16, 12, 16)
+	mainLayout.SetContentsMargins(14, 16, 14, 16)
 	centralWidget.SetLayout(mainLayout.QBoxLayout.QLayout)
 
 	translationTab := mw.createTranslationPage()
@@ -96,7 +112,14 @@ func NewMainWindow() *MainWindow {
 	// 创建绝对定位的设置按钮（不参与布局）
 	settingsBtn := qt.NewQPushButton5("⚙", centralWidget)
 	settingsBtn.SetFixedSize(qt.NewQSize2(28, 28))
-	settingsBtn.SetStyleSheet(`
+
+	// 根据系统主题设置不同的 hover 颜色
+	hoverColor := "#333333"
+	if isSystemDarkTheme() {
+		hoverColor = "#ffffff"
+	}
+
+	settingsBtn.SetStyleSheet(fmt.Sprintf(`
 QPushButton {
 	background-color: transparent;
 	border: none;
@@ -104,16 +127,16 @@ QPushButton {
 	color: #888888;
 }
 QPushButton:hover {
-	color: #ffffff;
+	color: %s;
 }
-`)
+`, hoverColor))
 	settingsBtn.OnPressed(func() {
 		mw.showSettingsWindow()
 	})
 
 	// 定位设置按钮到右上角
 	updateSettingsBtnPos := func() {
-		x := centralWidget.Width() - settingsBtn.Width() - 16
+		x := centralWidget.Width() - settingsBtn.Width() - 20
 		y := 2
 		settingsBtn.Move(x, y)
 	}
@@ -121,10 +144,19 @@ QPushButton:hover {
 	// 初始定位
 	updateSettingsBtnPos()
 
-	// 窗口大小变化时重新定位
+	// 窗口大小变化时重新定位并根据宽度显示/隐藏日志
 	centralWidget.OnResizeEvent(func(super func(event *qt.QResizeEvent), event *qt.QResizeEvent) {
 		super(event)
 		updateSettingsBtnPos()
+
+		// 窗口宽度小于500时隐藏日志模块
+		if mw.logGroup != nil {
+			if mw.window.Width() < 500 {
+				mw.logGroup.Hide()
+			} else {
+				mw.logGroup.Show()
+			}
+		}
 	})
 
 	mw.setupDragAndDrop()
@@ -134,6 +166,11 @@ QPushButton:hover {
 		mw.saveWindowSize()
 		super(event)
 	})
+
+	// 初始化时根据窗口宽度决定是否显示日志模块
+	if mw.logGroup != nil && mw.window.Width() < 500 {
+		mw.logGroup.Hide()
+	}
 
 	return mw
 }
@@ -210,8 +247,7 @@ func (mw *MainWindow) createTranslationPage() *qt.QWidget {
 	leftLayout.AddStretch()
 
 	rightGroup := qt.NewQGroupBox4("日志", page)
-	if runtime.GOOS == "darwin" {
-		rightGroup.SetStyleSheet(`
+	rightGroup.SetStyleSheet(`
 QGroupBox::title {
 	subcontrol-origin: margin;
 	subcontrol-position: top left;
@@ -219,7 +255,6 @@ QGroupBox::title {
 	left: 12px;
 }
 `)
-	}
 	rightLayout := qt.NewQVBoxLayout2()
 	rightLayout.SetContentsMargins(4, 8, 4, 8)
 	rightLayout.SetSpacing(2)
@@ -240,6 +275,8 @@ QTextEdit {
 
 	mainLayout.AddWidget2(leftGroup.QWidget, 0)
 	mainLayout.AddWidget2(rightGroup.QWidget, 1)
+
+	mw.logGroup = rightGroup
 
 	return page
 }
@@ -759,8 +796,17 @@ func (mw *MainWindow) loadConfigToSettings() {
 // main 函数是程序的入口点
 func main() {
 	app := qt.NewQApplication(os.Args)
-	if runtime.GOOS != "darwin" {
-		app.SetStyleSheet(string(styleQssData))
+
+	// 根据系统是否为 macOS 决定是否使用嵌入式样式
+	useEmbeddedStyle = runtime.GOOS != "darwin"
+
+	if useEmbeddedStyle {
+		// 检测系统主题并加载对应样式表
+		if isSystemDarkTheme() {
+			app.SetStyleSheet(string(styleDarkQssData))
+		} else {
+			app.SetStyleSheet(string(styleLightQssData))
+		}
 	}
 
 	// 设置应用程序图标（在 Windows 上显示在标题栏和任务栏）

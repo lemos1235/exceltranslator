@@ -34,10 +34,11 @@ QPushButton:pressed, QToolButton:pressed, QCommandLinkButton:pressed{
     background-color: qlineargradient(spread:pad, x1:0.5, y1:0, x2:0.5, y2:1, stop:0 #ffffff, stop:0.5 #fbfdfd, stop:1 #ffffff);
 }
 QPushButton:disabled, QToolButton:disabled, QCommandLinkButton:disabled{
-    color: #616161;
-    background-color: qlineargradient(spread:pad, x1:0.5, y1:0, x2:0.5, y2:1, stop:0 #dce7eb, stop:0.5 #e0e8eb, stop:1 #dee7ec);
+    color: #b6b6b6;
+    background-color: #f2f2f2;
 }
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QTimeEdit, QDateEdit, QDateTimeEdit {
+    margin: 4px 0;
     border-width: 2px;
     border-radius: 8px;
     border-style: solid;
@@ -103,12 +104,6 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover, QTimeEdit::down-
     border-bottom-right-radius: 5px;
     background-color: qlineargradient(spread:pad, x1:0.5, y1:0, x2:0.5, y2:1, stop:0 #84afe5, stop:1 #1168e4);
 }
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow, QTimeEdit::up-arrow, QDateEdit::up-arrow, QDateTimeEdit::up-arrow {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-up-symbolic.symbolic.png);
-}
-QSpinBox::down-arrow, QDoubleSpinBox::down-arrow, QTimeEdit::down-arrow, QDateEdit::down-arrow, QDateTimeEdit::down-arrow {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-down-symbolic.symbolic.png);
-}
 QProgressBar {
     max-height: 8px;
     text-align: center;
@@ -116,7 +111,7 @@ QProgressBar {
     color: #3d3d3d;
     border: 1px solid transparent;
     border-radius:4px;
-    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #ddd5d5, stop:0.5 #dad3d3, stop:1 #ddd5d5);
+    background-color: #d9d9d9;
 }
 QProgressBar::chunk {
     background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #467dd1, stop:0.5 #3b88fc, stop:1 #467dd1);
@@ -203,9 +198,6 @@ QComboBox::drop-down {
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
 }
-QComboBox::down-arrow {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-down-symbolic.symbolic.png); /*Adawaita icon thene*/
-}
 
 QComboBox::down-arrow:on {
     top: 1px;
@@ -240,17 +232,7 @@ QCheckBox:hover {
     border-width:1px;
     border-color: transparent;
 }
-QCheckBox::indicator:checked {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/object-select-symbolic.symbolic.png);
-    height: 15px;
-    width: 15px;
-    border-style:solid;
-    border-width: 1px;
-    border-color: #48a5fd;
-    color: #ffffff;
-    border-radius: 3px;
-    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #48a5fd, stop:0.5 #329cfb, stop:1 #48a5fd);
-}
+
 QCheckBox::indicator:unchecked {
     
     height: 15px;
@@ -366,69 +348,10 @@ QToolBox::tab:selected {
     color: #FFFFFF;
     background-color:#222b2e;
 }
-QScrollArea {
-    color: #FFFFFF;
-    background-color:#222b2e;
-}
 
-QScrollBar:horizontal {
-	max-height: 10px;
-	border: 1px transparent grey;
-	margin: 0px 20px 0px 20px;
-	background: transparent;
-}
-QScrollBar:vertical {
-	max-width: 10px;
-	border: 1px transparent grey;
-	margin: 20px 0px 20px 0px;
-	background: transparent;
-}
-QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-	background: #52595d;
-	border-style: transparent;
-	border-radius: 4px;
-	min-height: 25px;
-}
-QScrollBar::handle:horizontal:hover, QScrollBar::handle:vertical:hover {
-	background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #467dd1, stop:0.5 #3b88fc, stop:1 #467dd1);
-}
-QScrollBar::add-line, QScrollBar::sub-line {
-    border: 2px transparent grey;
+QGroupBox QGroupBox {
+    background-color: #dedede;
+    border: 1px solid #dadada;
     border-radius: 4px;
-    subcontrol-origin: margin;
-    background: #b9b9b9;
-}
-QScrollBar::add-line:horizontal {
-    width: 20px;
-    subcontrol-position: right;
-}
-QScrollBar::add-line:vertical {
-    height: 20px;
-    subcontrol-position: bottom;
-}
-QScrollBar::sub-line:horizontal {
-    width: 20px;
-    subcontrol-position: left;
-}
-QScrollBar::sub-line:vertical {
-    height: 20px;
-    subcontrol-position: top;
-}
-QScrollBar::add-line:vertical:pressed, QScrollBar::add-line:horizontal:pressed, QScrollBar::sub-line:horizontal:pressed, QScrollBar::sub-line:vertical:pressed {
-    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #467dd1, stop:0.5 #3b88fc, stop:1 #467dd1);
-}
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal, QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-    background: none;
-}
-QScrollBar::up-arrow:vertical {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-up-symbolic.symbolic.png);
-}
-QScrollBar::down-arrow:vertical {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-down-symbolic.symbolic.png);
-}
-QScrollBar::left-arrow:horizontal {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-previous-symbolic.symbolic.png);
-}
-QScrollBar::right-arrow:horizontal {
-    image: url(/usr/share/icons/Adwaita/16x16/actions/go-next-symbolic.symbolic.png);
+    padding: 15px 15px 15px 15px;
 }
