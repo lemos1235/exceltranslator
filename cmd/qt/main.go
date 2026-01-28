@@ -70,7 +70,13 @@ func NewMainWindow() *MainWindow {
 	mw.window = qt.NewQMainWindow2()
 	mw.window.SetWindowTitle("Excel 翻译器")
 	mw.window.SetMinimumSize(qt.NewQSize2(600, 400))
-	mw.window.Resize(800, 400)
+
+	// 从配置加载并恢复窗口大小
+	if cfg, err := config.Load(); err == nil && cfg.Window.Width > 0 && cfg.Window.Height > 0 {
+		mw.window.Resize(cfg.Window.Width, cfg.Window.Height)
+	} else {
+		mw.window.Resize(800, 400)
+	}
 
 	if runtime.GOOS == "darwin" {
 		mw.createMenuBar()
@@ -81,13 +87,53 @@ func NewMainWindow() *MainWindow {
 
 	mainLayout := qt.NewQVBoxLayout2()
 	mainLayout.SetSpacing(20)
-	mainLayout.SetContentsMargins(25, 25, 25, 25)
+	mainLayout.SetContentsMargins(12, 16, 12, 16)
 	centralWidget.SetLayout(mainLayout.QBoxLayout.QLayout)
 
 	translationTab := mw.createTranslationPage()
 	mainLayout.AddWidget(translationTab)
 
+	// 创建绝对定位的设置按钮（不参与布局）
+	settingsBtn := qt.NewQPushButton5("⚙", centralWidget)
+	settingsBtn.SetFixedSize(qt.NewQSize2(28, 28))
+	settingsBtn.SetStyleSheet(`
+QPushButton {
+	background-color: transparent;
+	border: none;
+	font-size: 20px;
+	color: #888888;
+}
+QPushButton:hover {
+	color: #ffffff;
+}
+`)
+	settingsBtn.OnPressed(func() {
+		mw.showSettingsWindow()
+	})
+
+	// 定位设置按钮到右上角
+	updateSettingsBtnPos := func() {
+		x := centralWidget.Width() - settingsBtn.Width() - 16
+		y := 2
+		settingsBtn.Move(x, y)
+	}
+
+	// 初始定位
+	updateSettingsBtnPos()
+
+	// 窗口大小变化时重新定位
+	centralWidget.OnResizeEvent(func(super func(event *qt.QResizeEvent), event *qt.QResizeEvent) {
+		super(event)
+		updateSettingsBtnPos()
+	})
+
 	mw.setupDragAndDrop()
+
+	// 窗口关闭时保存窗口大小
+	mw.window.OnCloseEvent(func(super func(event *qt.QCloseEvent), event *qt.QCloseEvent) {
+		mw.saveWindowSize()
+		super(event)
+	})
 
 	return mw
 }
@@ -678,6 +724,20 @@ func (mw *MainWindow) setupDragAndDrop() {
 			super(event)
 		}
 	})
+}
+
+// saveWindowSize 保存窗口大小到配置文件
+func (mw *MainWindow) saveWindowSize() {
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = config.DefaultConfig()
+	}
+
+	size := mw.window.Size()
+	cfg.Window.Width = size.Width()
+	cfg.Window.Height = size.Height()
+
+	_ = config.Save(cfg) // 静默保存，不显示错误
 }
 
 // loadConfigToSettings 从配置文件加载设置到UI组件
