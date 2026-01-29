@@ -247,14 +247,16 @@ func (mw *MainWindow) createTranslationPage() *qt.QWidget {
 	leftLayout.AddStretch()
 
 	rightGroup := qt.NewQGroupBox4("日志", page)
-	rightGroup.SetStyleSheet(`
-QGroupBox::title {
-	subcontrol-origin: margin;
-	subcontrol-position: top left;
-	top: 10px;
-	left: 12px;
-}
-`)
+	if runtime.GOOS == "darwin" {
+		rightGroup.SetStyleSheet(`
+		QGroupBox::title {
+			subcontrol-origin: margin;
+			subcontrol-position: top left;
+			top: 10px;
+			left: 12px;
+		}
+	`)
+	}
 	rightLayout := qt.NewQVBoxLayout2()
 	rightLayout.SetContentsMargins(4, 8, 4, 8)
 	rightLayout.SetSpacing(2)
@@ -289,7 +291,8 @@ func (mw *MainWindow) createSettingsPage() *qt.QWidget {
 	settingsPage.SetLayout(mainLayout.QBoxLayout.QLayout)
 
 	llmGroup := qt.NewQGroupBox4("LLM 配置", settingsPage)
-	llmGroup.SetStyleSheet(`
+	if runtime.GOOS == "darwin" {
+		llmGroup.SetStyleSheet(`
 QGroupBox::title {
 	subcontrol-origin: margin;
 	subcontrol-position: top left;
@@ -297,6 +300,7 @@ QGroupBox::title {
 	left: 12px;
 }
 `)
+	}
 	llmLayout := qt.NewQFormLayout2()
 	llmLayout.SetContentsMargins(10, 20, 10, 20)
 	llmLayout.SetSpacing(15)
@@ -319,7 +323,8 @@ QGroupBox::title {
 	mainLayout.AddSpacing(12)
 
 	clientGroup := qt.NewQGroupBox4("客户端配置", settingsPage)
-	clientGroup.SetStyleSheet(`
+	if runtime.GOOS == "darwin" {
+		clientGroup.SetStyleSheet(`
 QGroupBox::title {
 	subcontrol-origin: margin;
 	subcontrol-position: top left;
@@ -327,6 +332,7 @@ QGroupBox::title {
 	left: 12px;
 }
 `)
+	}
 	clientLayout := qt.NewQFormLayout2()
 	clientLayout.SetContentsMargins(10, 20, 10, 20)
 	clientLayout.SetSpacing(15)

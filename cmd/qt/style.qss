@@ -211,38 +211,7 @@ QComboBox QAbstractItemView {
     color: #272727;
     background: white;
 }
-QLabel, QCheckBox, QRadioButton {
-    color: #272727;
-}
-QCheckBox {
-    padding: 2px;
-}
-QCheckBox:disabled, QRadioButton:disabled {
-    color: #808086;
-    padding: 2px;
-}
 
-QCheckBox:hover {
-    border-radius:4px;
-    border-style:solid;
-    padding-left: 1px;
-    padding-right: 1px;
-    padding-bottom: 1px;
-    padding-top: 1px;
-    border-width:1px;
-    border-color: transparent;
-}
-
-QCheckBox::indicator:unchecked {
-    
-    height: 15px;
-    width: 15px;
-    border-style:solid;
-    border-width: 1px;
-    border-color: #48a5fd;
-    border-radius: 3px;
-    background-color: #fbfdfa;
-}
 QLCDNumber {
     color: #616161;;
 }
@@ -330,10 +299,6 @@ QRadioButton::indicator:!checked {
 }
 QStatusBar {
     color:#027f7f;
-}
-
-QDial {
-    background: #16a085;
 }
 
 QToolBox {
