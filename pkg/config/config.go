@@ -47,9 +47,9 @@ type WindowConfig struct {
 func DefaultConfig() *AppConfig {
 	return &AppConfig{
 		LLM: LLMConfig{
-			BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-			APIKey:  os.Getenv("DASHSCOPE_API_KEY"),
-			Model:   "qwen-flash",
+			BaseURL: "https://apis.iflow.cn/v1/chat/completions",
+			APIKey:  "",
+			Model:   "iflow-rome-30ba3b",
 			Prompt:  "翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。",
 		},
 		Extractor: ExtractorConfig{
