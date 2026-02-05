@@ -38,6 +38,24 @@ func NewExtractor(config ExtractorConfig) *Extractor {
 	}
 }
 
+// ShouldExtractXML determines if an XML file should be processed by the extractor.
+func ShouldExtractXML(fileName string) bool {
+	if !strings.HasSuffix(fileName, ".xml") {
+		return false
+	}
+	// Common for DOCX and XLSX
+	if strings.Contains(fileName, "word/document.xml") ||
+		strings.Contains(fileName, "word/header") ||
+		strings.Contains(fileName, "word/footer") ||
+		strings.Contains(fileName, "xl/sharedStrings.xml") ||
+		strings.Contains(fileName, "xl/drawings/drawing") ||
+		strings.Contains(fileName, "xl/comments") ||
+		strings.Contains(fileName, "xl/workbook.xml") {
+		return true
+	}
+	return false
+}
+
 // ContainsCJK checks if the string contains any CJK characters
 func ContainsCJK(s string) bool {
 	for _, r := range s {
