@@ -19,6 +19,7 @@ type FileType string
 const (
 	FileTypeDocx FileType = "docx"
 	FileTypeXlsx FileType = "xlsx"
+	FileTypePptx FileType = "pptx"
 )
 
 // ExtractorConfig holds configuration for the extraction process
@@ -38,19 +39,27 @@ func NewExtractor(config ExtractorConfig) *Extractor {
 	}
 }
 
+// drawingMLTextRegex matches DrawingML text runs used by XLSX shapes and PPTX slides.
+// Supports attributes like xml:space="preserve"; excludes tags such as <a:tab / <a:tailEnd.
+var drawingMLTextRegex = regexp.MustCompile(`(?s)<a:t\b[^>]*>(.*?)</a:t>`)
+
 // ShouldExtractXML determines if an XML file should be processed by the extractor.
 func ShouldExtractXML(fileName string) bool {
 	if !strings.HasSuffix(fileName, ".xml") {
 		return false
 	}
-	// Common for DOCX and XLSX
+	// Common for DOCX, XLSX, and PPTX
 	if strings.Contains(fileName, "word/document.xml") ||
 		strings.Contains(fileName, "word/header") ||
 		strings.Contains(fileName, "word/footer") ||
 		strings.Contains(fileName, "xl/sharedStrings.xml") ||
 		strings.Contains(fileName, "xl/drawings/drawing") ||
 		strings.Contains(fileName, "xl/comments") ||
-		strings.Contains(fileName, "xl/workbook.xml") {
+		strings.Contains(fileName, "xl/workbook.xml") ||
+		// PPTX: slides (body + shapes), speaker notes, and layout footers/headers
+		strings.Contains(fileName, "ppt/slides/slide") ||
+		strings.Contains(fileName, "ppt/notesSlides/") ||
+		strings.Contains(fileName, "ppt/slideLayouts/") {
 		return true
 	}
 	return false
@@ -111,9 +120,12 @@ func (e *Extractor) Extract(content string, xmlType string) (string, []Extractio
 		content = removePhoneticAnnotations(content)
 		// XLSX Shared Strings
 		re = regexp.MustCompile(`(?s)<t>(.*?)</t>`)
-	} else if strings.Contains(xmlType, "xl/drawings/drawing") {
-		// XLSX Drawings (Shapes)
-		re = regexp.MustCompile(`(?s)<a:t>(.*?)</a:t>`)
+	} else if strings.Contains(xmlType, "xl/drawings/drawing") ||
+		strings.Contains(xmlType, "ppt/slides/slide") ||
+		strings.Contains(xmlType, "ppt/notesSlides/") ||
+		strings.Contains(xmlType, "ppt/slideLayouts/") {
+		// XLSX drawings / PPTX slides, notes, layouts (body text + shapes + tables)
+		re = drawingMLTextRegex
 	} else if strings.Contains(xmlType, "xl/comments") {
 		re = regexp.MustCompile(`(?s)<t>(.*?)</t>`)
 	} else if strings.Contains(xmlType, "xl/workbook.xml") {

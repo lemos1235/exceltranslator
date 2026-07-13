@@ -6,6 +6,12 @@ APP="out/macos/$NAME.app"
 ICON=icon.icns
 QT=/opt/homebrew/opt/qt
 
+# Qt / miqt 需要 C++17
+export CGO_CXXFLAGS="${CGO_CXXFLAGS:--std=c++17}"
+export CXXFLAGS="${CXXFLAGS:--std=c++17}"
+export PATH="$QT/bin:${PATH}"
+export PKG_CONFIG_PATH="$QT/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
 # 编译 Go 二进制
 go build -ldflags "-s -w" -o "$BINDIR/$NAME" $GOFILES
 

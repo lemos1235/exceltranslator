@@ -1,10 +1,11 @@
 # Excel Translator
 
-An easy-to-use tool for translating Excel files.
+An easy-to-use tool for translating Excel, Word, and PowerPoint files.
 
 ## Key Features
 
-- Supports translation of text within Excel shapes and charts.
+- Supports **XLSX**, **DOCX**, and **PPTX**.
+- Translates text in Excel cells/shapes, Word documents, and PowerPoint slides (including shapes and tables).
 - Preserves original formatting and styles.
 - Utilizes advanced AI models for high-quality translation.
 - Provides a clean and intuitive graphical user interface (GUI).

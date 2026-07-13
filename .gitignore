@@ -28,6 +28,8 @@ bin/
 out/
 miqt/
 native/
+demo/
+!demo/screenshot.png
 
 # 开发工具
 .idea/

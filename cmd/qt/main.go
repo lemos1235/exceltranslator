@@ -195,12 +195,12 @@ func (mw *MainWindow) createTranslationPage() *qt.QWidget {
 	fileLayout.SetSpacing(10)
 	fileGroup.SetLayout(fileLayout.QBoxLayout.QLayout)
 
-	fileHint := qt.NewQLabel5("拖拽Excel文件到此区域或点击浏览文件", fileGroup.QWidget)
+	fileHint := qt.NewQLabel5("拖拽 Excel/Word/PPT 文件到此区域或点击浏览文件", fileGroup.QWidget)
 	fileHint.SetAlignment(qt.AlignCenter)
 	fileLayout.AddWidget(fileHint.QWidget)
 
 	mw.inputFileEdit = qt.NewQLineEdit(fileGroup.QWidget)
-	mw.inputFileEdit.SetPlaceholderText("选择要翻译的Excel文件...")
+	mw.inputFileEdit.SetPlaceholderText("选择要翻译的 Excel/Word/PPT 文件...")
 	mw.inputFileEdit.SetAcceptDrops(true)
 	mw.inputFileEdit.SetReadOnly(true)
 	fileLayout.AddWidget(mw.inputFileEdit.QWidget)
@@ -384,9 +384,9 @@ func (mw *MainWindow) selectInputFile() {
 
 	fileName := qt.QFileDialog_GetOpenFileName4(
 		mw.window.QWidget,
-		"选择Excel文件",
+		"选择 Office 文件",
 		startDir,
-		"Excel files (*.xlsx *.docx);;All Files (*)",
+		"Office files (*.xlsx *.docx *.pptx);;All Files (*)",
 	)
 	if fileName != "" {
 		mw.inputFileEdit.SetText(fileName)
@@ -635,7 +635,7 @@ func (mw *MainWindow) promptSaveFile() {
 		mw.window.QWidget,
 		"保存翻译后的文件",
 		defaultPath,
-		"Excel files (*.xlsx *.docx);;All Files (*)",
+		"Office files (*.xlsx *.docx *.pptx);;All Files (*)",
 	)
 
 	if savePath != "" {
@@ -753,14 +753,14 @@ func (mw *MainWindow) setupDragAndDrop() {
 				filePath := urls[0].ToLocalFile()
 
 				ext := strings.ToLower(filepath.Ext(filePath))
-				if ext == ".xlsx" || ext == ".docx" {
+				if ext == ".xlsx" || ext == ".docx" || ext == ".pptx" {
 					mw.inputFileEdit.SetText(filePath)
 					mw.lastOpenDir = filepath.Dir(filePath)
 					mw.logTextEdit.Clear()
 					mw.resetProgressBar()
 					event.AcceptProposedAction()
 				} else {
-					qt.QMessageBox_Warning(mw.window.QWidget, "错误", "请拖拽Excel文件(.xlsx或.docx)")
+					qt.QMessageBox_Warning(mw.window.QWidget, "错误", "请拖拽 Office 文件（.xlsx / .docx / .pptx）")
 				}
 			}
 		} else {

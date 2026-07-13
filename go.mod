@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.5
 
 require (
-	github.com/mappu/miqt v0.12.0
+	github.com/mappu/miqt v0.14.0
 	github.com/openai/openai-go/v3 v3.17.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 )
