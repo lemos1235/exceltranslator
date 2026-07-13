@@ -53,11 +53,11 @@ func RunTranslationWithConfig(ctx context.Context, inputFile, outputFile string,
 		OnError:      cb.OnError,
 		OnComplete:   cb.OnComplete,
 	}
-	trans := translator.NewTranslator(ctx, llmService, translatorCallbacks)
+	trans := translator.NewTranslator(ctx, llmService, translatorCallbacks, cfg.Translation.MaxConcurrentRequests)
 
 	// Initialize File Processor
 	fp := fileprocessor.NewFileProcessorWithLogger(logInstance)
-	fp.SetExtractorConfig(textextractor.ExtractorConfig{CJKOnly: cfg.Extractor.CJKOnly})
+	fp.SetExtractorConfig(textextractor.ExtractorConfig{CJKOnly: cfg.Translation.CJKOnly})
 
 	// Process file using the LocalTranslator
 	//processingErr := fp.ProcessFile(inputFile, outputFile, trans)

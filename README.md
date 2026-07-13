@@ -26,9 +26,11 @@ api_key = 'sk-'
 model = 'iflow-rome-30ba3b'
 prompt = '翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。'
 
-[extractor]
+[translation]
 # Translate only CJK (Chinese, Japanese, Korean) text
-cjk_only = true
+cjk_only = false
+# Max concurrent LLM translation requests
+max_concurrent_requests = 4
 ```
 
 ## GUI

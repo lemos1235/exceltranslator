@@ -283,14 +283,14 @@ QTextEdit {
 	return page
 }
 
-// createSettingsPage 创建设置页面，包含LLM配置和客户端配置两个分组
+// createSettingsPage 创建设置页面，包含模型配置和客户端配置两个分组
 func (mw *MainWindow) createSettingsPage() *qt.QWidget {
 	settingsPage := qt.NewQWidget2()
 	mainLayout := qt.NewQVBoxLayout2()
 	mainLayout.SetSpacing(20)
 	settingsPage.SetLayout(mainLayout.QBoxLayout.QLayout)
 
-	llmGroup := qt.NewQGroupBox4("LLM 配置", settingsPage)
+	llmGroup := qt.NewQGroupBox4("模型配置", settingsPage)
 	if runtime.GOOS == "darwin" {
 		llmGroup.SetStyleSheet(`
 QGroupBox::title {
@@ -318,6 +318,10 @@ QGroupBox::title {
 	mw.modelEdit = qt.NewQLineEdit(llmGroup.QWidget)
 	llmLayout.AddRow3("模型:", mw.modelEdit.QWidget)
 
+	mw.promptEdit = qt.NewQTextEdit(llmGroup.QWidget)
+	mw.promptEdit.SetMaximumHeight(100)
+	llmLayout.AddRow3("翻译提示词:", mw.promptEdit.QWidget)
+
 	mainLayout.AddWidget(llmGroup.QWidget)
 
 	mainLayout.AddSpacing(12)
@@ -336,22 +340,20 @@ QGroupBox::title {
 	clientLayout := qt.NewQFormLayout2()
 	clientLayout.SetContentsMargins(10, 20, 10, 20)
 	clientLayout.SetSpacing(15)
-	clientLayout.SetLabelAlignment(qt.AlignRight)
-	clientLayout.SetFieldGrowthPolicy(qt.QFormLayout__ExpandingFieldsGrow)
+	clientLayout.SetLabelAlignment(qt.AlignLeft | qt.AlignVCenter)
+	clientLayout.SetFormAlignment(qt.AlignLeft | qt.AlignTop)
+	clientLayout.SetFieldGrowthPolicy(qt.QFormLayout__FieldsStayAtSizeHint)
 	clientGroup.SetLayout(clientLayout.QLayout)
 
-	//mw.maxConcurrentSpin = qt.NewQSpinBox(clientGroup.QWidget)
-	//mw.maxConcurrentSpin.SetRange(1, 20)
-	//mw.maxConcurrentSpin.SetValue(5)
-	//clientLayout.AddRow3("最大并发请求数:", mw.maxConcurrentSpin.QWidget)
+	mw.maxConcurrentSpin = qt.NewQSpinBox(clientGroup.QWidget)
+	mw.maxConcurrentSpin.SetRange(1, 20)
+	mw.maxConcurrentSpin.SetValue(config.DefaultMaxConcurrentRequests)
+	mw.maxConcurrentSpin.SetAlignment(qt.AlignLeft)
+	clientLayout.AddRow3("最大并发请求数:", mw.maxConcurrentSpin.QWidget)
 
 	mw.onlyTranslateCJKCheck = qt.NewQCheckBox(clientGroup.QWidget)
 	mw.onlyTranslateCJKCheck.SetChecked(true)
 	clientLayout.AddRow3("仅翻译CJK文本:", mw.onlyTranslateCJKCheck.QWidget)
-
-	mw.promptEdit = qt.NewQTextEdit(clientGroup.QWidget)
-	mw.promptEdit.SetMaximumHeight(100)
-	clientLayout.AddRow3("翻译提示词:", mw.promptEdit.QWidget)
 
 	mainLayout.AddWidget(clientGroup.QWidget)
 
@@ -601,7 +603,8 @@ func (mw *MainWindow) saveConfig() {
 	cfg.LLM.BaseURL = mw.apiUrlEdit.Text()
 	cfg.LLM.Model = mw.modelEdit.Text()
 	cfg.LLM.Prompt = mw.promptEdit.ToPlainText()
-	cfg.Extractor.CJKOnly = mw.onlyTranslateCJKCheck.IsChecked()
+	cfg.Translation.MaxConcurrentRequests = mw.maxConcurrentSpin.Value()
+	cfg.Translation.CJKOnly = mw.onlyTranslateCJKCheck.IsChecked()
 
 	err = config.Save(cfg)
 	if err != nil {
@@ -795,8 +798,8 @@ func (mw *MainWindow) loadConfigToSettings() {
 	mw.apiUrlEdit.SetText(cfg.LLM.BaseURL) // Note: APIURL in GUI maps to BaseURL in config
 	mw.modelEdit.SetText(cfg.LLM.Model)
 	mw.promptEdit.SetText(cfg.LLM.Prompt) // Map LLM.Prompt directly
-	// mw.maxConcurrentSpin.SetValue(cfg.Client.MaxConcurrentRequests) // No direct mapping in AppConfig
-	mw.onlyTranslateCJKCheck.SetChecked(cfg.Extractor.CJKOnly) // Map Extractor.CJKOnly
+	mw.maxConcurrentSpin.SetValue(cfg.Translation.MaxConcurrentRequests)
+	mw.onlyTranslateCJKCheck.SetChecked(cfg.Translation.CJKOnly)
 }
 
 // main 函数是程序的入口点

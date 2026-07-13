@@ -13,13 +13,15 @@ const (
 	FileName = "config.toml"
 )
 
+const DefaultMaxConcurrentRequests = 4
+
 // AppConfig represents the persistent application configuration.
-// It combines settings for LLMService and TextExtractor.
+// It combines settings for LLMService and translation behavior.
 type AppConfig struct {
-	LLM       LLMConfig       `toml:"llm" json:"llm"`
-	Extractor ExtractorConfig `toml:"extractor" json:"extractor"`
-	Log       LogConfig       `toml:"log" json:"log"`
-	Window    WindowConfig    `toml:"window" json:"window"`
+	LLM         LLMConfig         `toml:"llm" json:"llm"`
+	Translation TranslationConfig `toml:"translation" json:"translation"`
+	Log         LogConfig         `toml:"log" json:"log"`
+	Window      WindowConfig      `toml:"window" json:"window"`
 }
 
 type LLMConfig struct {
@@ -29,8 +31,9 @@ type LLMConfig struct {
 	Prompt  string `toml:"prompt" json:"prompt"`
 }
 
-type ExtractorConfig struct {
-	CJKOnly bool `toml:"cjk_only" json:"cjk_only"`
+type TranslationConfig struct {
+	CJKOnly               bool `toml:"cjk_only" json:"cjk_only"`
+	MaxConcurrentRequests int  `toml:"max_concurrent_requests" json:"max_concurrent_requests"`
 }
 
 type LogConfig struct {
@@ -52,8 +55,9 @@ func DefaultConfig() *AppConfig {
 			Model:   "iflow-rome-30ba3b",
 			Prompt:  "翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。",
 		},
-		Extractor: ExtractorConfig{
-			CJKOnly: false,
+		Translation: TranslationConfig{
+			CJKOnly:               false,
+			MaxConcurrentRequests: DefaultMaxConcurrentRequests,
 		},
 		Log: LogConfig{
 			Level:    "INFO",
@@ -63,6 +67,13 @@ func DefaultConfig() *AppConfig {
 			Width:  0,
 			Height: 0,
 		},
+	}
+}
+
+// Normalize fills invalid or missing values with safe defaults.
+func (cfg *AppConfig) Normalize() {
+	if cfg.Translation.MaxConcurrentRequests <= 0 {
+		cfg.Translation.MaxConcurrentRequests = DefaultMaxConcurrentRequests
 	}
 }
 
@@ -105,9 +116,7 @@ func Load() (*AppConfig, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Apply defaults if fields are missing (basic approach, or just return loaded)
-	// For robust app, you might want to merge with defaults.
-	// Here we'll just return what we loaded.
+	cfg.Normalize()
 	return &cfg, nil
 }
 

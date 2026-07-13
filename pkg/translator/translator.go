@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // TranslationEngine 定义翻译引擎接口，用于将原文转换成翻译结果
@@ -31,35 +32,40 @@ type TranslationCallbacks struct {
 
 // LocalTranslator 封装翻译引擎和上下文，负责执行翻译操作
 type LocalTranslator struct {
-	ctx       context.Context
-	engine    TranslationEngine
-	callbacks TranslationCallbacks
-	cache     map[string]string
-	mu        sync.RWMutex
+	ctx           context.Context
+	engine        TranslationEngine
+	callbacks     TranslationCallbacks
+	cache         map[string]string
+	mu            sync.RWMutex
+	maxConcurrent int
 }
 
 // NewTranslator 创建一个新的 LocalTranslator 实例
-func NewTranslator(ctx context.Context, engine TranslationEngine, callbacks TranslationCallbacks) *LocalTranslator {
+func NewTranslator(ctx context.Context, engine TranslationEngine, callbacks TranslationCallbacks, maxConcurrent int) *LocalTranslator {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 1
+	}
 	return &LocalTranslator{
-		ctx:       ctx,
-		engine:    engine,
-		callbacks: callbacks,
-		cache:     make(map[string]string),
+		ctx:           ctx,
+		engine:        engine,
+		callbacks:     callbacks,
+		cache:         make(map[string]string),
+		maxConcurrent: maxConcurrent,
 	}
 }
 
 // Translate 执行翻译操作，内部调用翻译引擎
-func (t *LocalTranslator) Translate(text string) (string, error) {
+func (t *LocalTranslator) Translate(ctx context.Context, text string) (string, error) {
 	// 检查上下文是否已取消
 	select {
-	case <-t.ctx.Done():
-		return "", t.ctx.Err()
+	case <-ctx.Done():
+		return "", ctx.Err()
 	default:
 		// 继续执行
 	}
 
 	// 调用翻译引擎
-	translatedText, err := t.engine.Translate(t.ctx, text)
+	translatedText, err := t.engine.Translate(ctx, text)
 	if err != nil {
 		if t.callbacks.OnError != nil {
 			t.callbacks.OnError("translation_engine", fmt.Errorf("translation failed for text '%s': %w", text, err))
@@ -75,42 +81,113 @@ func (t *LocalTranslator) Translate(text string) (string, error) {
 	return translatedText, nil
 }
 
-// TranslateFileTexts 批量翻译文本数组
+// TranslateFileTexts 批量翻译文本数组（有界并发，进度按完成数上报）
 func (t *LocalTranslator) TranslateFileTexts(fileName string, texts []string) ([]string, error) {
-	translations := make([]string, 0, len(texts))
 	totalItems := len(texts)
+	if totalItems == 0 {
+		return []string{}, nil
+	}
 
-	for i, text := range texts {
-		t.mu.RLock()
-		cached, found := t.cache[text]
-		t.mu.RUnlock()
+	results := make([]string, totalItems)
+	workers := t.maxConcurrent
+	if workers > totalItems {
+		workers = totalItems
+	}
 
-		if found {
-			translations = append(translations, cached)
-			// 报告进度
-			if t.callbacks.OnProgress != nil {
-				t.callbacks.OnProgress(fileName, i+1, totalItems)
+	ctx, cancel := context.WithCancel(t.ctx)
+	defer cancel()
+
+	jobs := make(chan int)
+	var (
+		wg       sync.WaitGroup
+		done     int64
+		errOnce  sync.Once
+		firstErr error
+	)
+
+	reportProgress := func() {
+		if t.callbacks.OnProgress == nil {
+			return
+		}
+		current := int(atomic.AddInt64(&done, 1))
+		t.callbacks.OnProgress(fileName, current, totalItems)
+	}
+
+	fail := func(err error) {
+		if err == nil {
+			return
+		}
+		errOnce.Do(func() {
+			firstErr = err
+			cancel()
+		})
+	}
+
+	worker := func() {
+		defer wg.Done()
+		for i := range jobs {
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
-			continue
-		}
 
-		// 翻译单个文本项
-		translated, err := t.Translate(text)
-		if err != nil {
-			return nil, fmt.Errorf("translation failed for item %d in %s: %w", i, fileName, err)
-		}
+			text := texts[i]
 
-		t.mu.Lock()
-		t.cache[text] = translated
-		t.mu.Unlock()
+			t.mu.RLock()
+			cached, found := t.cache[text]
+			t.mu.RUnlock()
 
-		translations = append(translations, translated)
+			if found {
+				results[i] = cached
+				reportProgress()
+				continue
+			}
 
-		// 报告进度
-		if t.callbacks.OnProgress != nil {
-			t.callbacks.OnProgress(fileName, i+1, totalItems)
+			translated, err := t.Translate(ctx, text)
+			if err != nil {
+				fail(fmt.Errorf("translation failed for item %d in %s: %w", i, fileName, err))
+				return
+			}
+
+			t.mu.Lock()
+			// 二次检查，避免并发下重复写入同一 key 时覆盖不一致
+			if existing, ok := t.cache[text]; ok {
+				translated = existing
+			} else {
+				t.cache[text] = translated
+			}
+			t.mu.Unlock()
+
+			results[i] = translated
+			reportProgress()
 		}
 	}
 
-	return translations, nil
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go worker()
+	}
+
+	for i := range texts {
+		select {
+		case <-ctx.Done():
+			// 停止投递剩余任务
+			goto waitWorkers
+		case jobs <- i:
+		}
+	}
+
+waitWorkers:
+	close(jobs)
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	if err := t.ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
