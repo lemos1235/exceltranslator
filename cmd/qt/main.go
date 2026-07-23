@@ -195,7 +195,7 @@ func (mw *MainWindow) createTranslationPage() *qt.QWidget {
 	fileLayout.SetSpacing(10)
 	fileGroup.SetLayout(fileLayout.QBoxLayout.QLayout)
 
-	fileHint := qt.NewQLabel5("拖拽 Excel/Word/PPT 文件到此区域或点击浏览文件", fileGroup.QWidget)
+	fileHint := qt.NewQLabel5("拖拽文件到此区域或点击浏览文件", fileGroup.QWidget)
 	fileHint.SetAlignment(qt.AlignCenter)
 	fileLayout.AddWidget(fileHint.QWidget)
 
