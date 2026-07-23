@@ -20,12 +20,71 @@ func TestShouldExtractXML_PPTX(t *testing.T) {
 		{"ppt/slideMasters/slideMaster1.xml", false},
 		{"ppt/theme/theme1.xml", false},
 		{"xl/drawings/drawing1.xml", true},
+		{"xl/tables/table1.xml", true},
+		{"xl/tables/table42.xml", true},
+		{"xl/tables/_rels/table1.xml.rels", false},
+		{"xl/tables.xml", false},
 		{"word/document.xml", true},
 	}
 	for _, tc := range cases {
 		if got := ShouldExtractXML(tc.path); got != tc.want {
 			t.Errorf("ShouldExtractXML(%q) = %v, want %v", tc.path, got, tc.want)
 		}
+	}
+}
+
+func TestExtractAndApply_XLSXTableAttributes(t *testing.T) {
+	content := `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" description="Questions > Answers" name="VendorQuestions" displayName="VendorQuestions" ref="A1:B2">
+<tableColumns count="2">
+<tableColumn id="1" dataName="do-not-translate" custom-name="also-do-not-translate" name="番号"/>
+<tableColumn id="2" name="質問 &amp; 回答" displayName="表示名"/>
+</tableColumns>
+<tableStyleInfo name="TableStyleMedium2"/>
+</table>`
+
+	e := NewExtractor(ExtractorConfig{})
+	cleaned, items, err := e.Extract(content, "xl/tables/table1.xml")
+	if err != nil {
+		t.Fatalf("Extract error: %v", err)
+	}
+
+	wantTexts := []string{"VendorQuestions", "VendorQuestions", "番号", "質問 & 回答", "表示名"}
+	if got := textsOf(items); !equalStrings(got, wantTexts) {
+		t.Fatalf("extracted texts = %v, want %v", got, wantTexts)
+	}
+
+	translations := []string{"供应商问题表", "供应商问题表", "编号", "问题 & 答案", "显示名称"}
+	got, err := e.Apply(cleaned, "xl/tables/table1.xml", items, translations)
+	if err != nil {
+		t.Fatalf("Apply error: %v", err)
+	}
+
+	for _, want := range []string{
+		`name="供应商问题表"`,
+		`displayName="供应商问题表"`,
+		`name="编号"`,
+		`name="问题 &amp; 答案"`,
+		`displayName="显示名称"`,
+		`<tableStyleInfo name="TableStyleMedium2"/>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("translated table XML does not contain %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestExtract_XLSXTableAttributes_CJKOnly(t *testing.T) {
+	content := `<table name="EnglishTable" displayName="日本語テーブル"><tableColumns><tableColumn name="English"/><tableColumn name="列名"/></tableColumns></table>`
+	e := NewExtractor(ExtractorConfig{CJKOnly: true})
+
+	_, items, err := e.Extract(content, "xl/tables/table1.xml")
+	if err != nil {
+		t.Fatalf("Extract error: %v", err)
+	}
+
+	want := []string{"日本語テーブル", "列名"}
+	if got := textsOf(items); !equalStrings(got, want) {
+		t.Fatalf("extracted texts = %v, want %v", got, want)
 	}
 }
 
@@ -117,4 +176,16 @@ func textsOf(items []ExtractionItem) []string {
 		out[i] = it.Text
 	}
 	return out
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

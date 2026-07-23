@@ -53,7 +53,7 @@ func DefaultConfig() *AppConfig {
 			BaseURL: "https://apis.iflow.cn/v1/chat/completions",
 			APIKey:  "",
 			Model:   "iflow-rome-30ba3b",
-			Prompt:  "翻译为简体中文。保留所有数字和字母。若原样为中文则不处理。仅输出译文，禁止回复译文以外的任何内容。",
+			Prompt:  "你是专业翻译引擎。请将待翻译文本翻译为简体中文。保留原文中的数字、字母、占位符、标点和换行。若原文已经是中文则原样返回。",
 		},
 		Translation: TranslationConfig{
 			CJKOnly:               false,

@@ -11,6 +11,8 @@ import (
 var (
 	phoneticRunRegex      = regexp.MustCompile(`(?s)<rPh\b[^>]*?>.*?</rPh>`)
 	phoneticPropertyRegex = regexp.MustCompile(`(?s)<phoneticPr\b[^>]*?/?>`)
+	tableElementRegex     = regexp.MustCompile(`(?s)<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?(?:table|tableColumn)\b(?:[^<>"']|"[^"]*"|'[^']*')*>`)
+	tableAttributeRegex   = regexp.MustCompile(`[[:space:]]+(?:name|displayName)[[:space:]]*=[[:space:]]*"([^"]*)"`)
 )
 
 // FileType represents the type of file being processed
@@ -56,6 +58,7 @@ func ShouldExtractXML(fileName string) bool {
 		strings.Contains(fileName, "xl/drawings/drawing") ||
 		strings.Contains(fileName, "xl/comments") ||
 		strings.Contains(fileName, "xl/workbook.xml") ||
+		strings.Contains(fileName, "xl/tables/table") ||
 		// PPTX: slides (body + shapes), speaker notes, and layout footers/headers
 		strings.Contains(fileName, "ppt/slides/slide") ||
 		strings.Contains(fileName, "ppt/notesSlides/") ||
@@ -131,6 +134,9 @@ func (e *Extractor) Extract(content string, xmlType string) (string, []Extractio
 	} else if strings.Contains(xmlType, "xl/workbook.xml") {
 		// XLSX Workbook - sheet names
 		re = regexp.MustCompile(`<sheet name="([^"]+?)"[^>]*?>`)
+	} else if strings.Contains(xmlType, "xl/tables/table") {
+		// XLSX Tables - table identifiers and column names
+		return content, e.extractTableAttributes(content), nil
 	} else {
 		return content, nil, nil // No translation needed
 	}
@@ -177,6 +183,40 @@ func (e *Extractor) Extract(content string, xmlType string) (string, []Extractio
 	}
 
 	return content, items, nil
+}
+
+// extractTableAttributes extracts name/displayName values only from table and
+// tableColumn elements, excluding unrelated attributes such as tableStyleInfo.name.
+func (e *Extractor) extractTableAttributes(content string) []ExtractionItem {
+	elementMatches := tableElementRegex.FindAllStringIndex(content, -1)
+	var items []ExtractionItem
+
+	for _, elementMatch := range elementMatches {
+		element := content[elementMatch[0]:elementMatch[1]]
+		attributeMatches := tableAttributeRegex.FindAllStringSubmatchIndex(element, -1)
+		for _, attributeMatch := range attributeMatches {
+			if len(attributeMatch) < 4 {
+				continue
+			}
+
+			textStart := elementMatch[0] + attributeMatch[2]
+			textEnd := elementMatch[0] + attributeMatch[3]
+			unescaped := html.UnescapeString(content[textStart:textEnd])
+			if !IsValidTextContent(unescaped) || (e.config.CJKOnly && !ContainsCJK(unescaped)) {
+				continue
+			}
+
+			items = append(items, ExtractionItem{
+				Text:       unescaped,
+				MatchStart: elementMatch[0] + attributeMatch[0],
+				MatchEnd:   elementMatch[0] + attributeMatch[1],
+				TextStart:  textStart,
+				TextEnd:    textEnd,
+			})
+		}
+	}
+
+	return items
 }
 
 // Apply replaces the extracted items with their translations in the content.
