@@ -11,7 +11,10 @@
 ; =============================================================================
 
 !define APP_NAME "Excel Translator"
-!define APP_VERSION "1.0.0"
+; 版本号由 build_winapp_installer.sh 通过 -DAPP_VERSION 传入（取自 VERSION 文件）
+!ifndef APP_VERSION
+    !define APP_VERSION "1.0.0"
+!endif
 !define APP_PUBLISHER "Excel Translator"
 !define APP_EXE "Excel Translator.exe"
 !define APP_ICON "icon.ico"

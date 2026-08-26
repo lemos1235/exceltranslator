@@ -18,12 +18,16 @@ import (
 
 	"exceltranslator/pkg/config"
 	"exceltranslator/pkg/runner"
+	"exceltranslator/pkg/version"
 )
 
 //go:embed icon.png
 var appIconData []byte
 
 var useEmbeddedStyle = true
+
+// appDisplayName 应用在窗口标题与关于对话框中显示的名称
+const appDisplayName = "Excel 翻译器"
 
 //go:embed style.qss
 var styleLightQssData []byte
@@ -84,7 +88,7 @@ func NewMainWindow() *MainWindow {
 	mw := &MainWindow{}
 
 	mw.window = qt.NewQMainWindow2()
-	mw.window.SetWindowTitle("Excel 翻译器")
+	mw.window.SetWindowTitle(appDisplayName)
 	mw.window.SetMinimumSize(qt.NewQSize2(404, 342))
 
 	// 从配置加载并恢复窗口大小
@@ -485,16 +489,18 @@ func (mw *MainWindow) startTranslation() {
 					mw.addLog(fmt.Sprintf("%s -> %s", original, translated))
 				})
 			},
-			// 进度条展示整个文件的总体进度，避免每个内部文件都从 0 重新开始
+			// 进度条展示整个文件的总体进度，避免每个内部文件都从 0 重新开始。
+			// 该回调由 translator 持锁调用，这里用非阻塞的 Start 投递，
+			// 避免阻塞式的主线程往返把并发翻译串行化（投递顺序即上报顺序，进度不会回退）
 			OnOverallProgress: func(done, total int) {
-				mainthread.Wait(func() {
-					if total <= 0 {
-						return
-					}
-					progress := done * 100 / total
-					if progress > 100 {
-						progress = 100
-					}
+				if total <= 0 {
+					return
+				}
+				progress := done * 100 / total
+				if progress > 100 {
+					progress = 100
+				}
+				mainthread.Start(func() {
 					mw.progressBar.SetValue(progress)
 				})
 			},
@@ -678,11 +684,20 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-// createMenuBar 创建应用程序菜单栏，包含偏好设置菜单
+// createMenuBar 创建应用程序菜单栏，包含关于与偏好设置菜单
+// 在 macOS 上，AboutRole/PreferencesRole 会让菜单项自动归入系统的应用菜单
 func (mw *MainWindow) createMenuBar() {
 	menuBar := qt.NewQMenuBar2()
 	mw.window.SetMenuBar(menuBar)
 	appMenu := menuBar.AddMenuWithTitle("File")
+
+	aboutAction := qt.NewQAction2("About " + appDisplayName)
+	aboutAction.SetMenuRole(qt.QAction__AboutRole)
+	aboutAction.OnTriggered(func() {
+		mw.showAboutDialog()
+	})
+	appMenu.AddAction(aboutAction)
+
 	preferencesAction := qt.NewQAction2("Preferences...")
 	preferencesAction.SetMenuRole(qt.QAction__PreferencesRole)
 	preferencesAction.SetShortcutsWithShortcuts(qt.QKeySequence__Preferences)
@@ -690,6 +705,17 @@ func (mw *MainWindow) createMenuBar() {
 		mw.showSettingsWindow()
 	})
 	appMenu.AddAction(preferencesAction)
+}
+
+// showAboutDialog 显示关于对话框，展示应用名称与版本信息
+func (mw *MainWindow) showAboutDialog() {
+	// QMessageBox 的主文本在 macOS 上默认加粗，这里显式声明 normal 字重把它压回常规粗细；
+	// 版本号用灰色弱化，上下留白让文字相对左侧图标不至于太靠上
+	text := fmt.Sprintf(
+		`<div style="margin-top:14px; font-size:15px; font-weight:normal;">%s</div>`+
+			`<div style="margin-top:4px; margin-bottom:14px; font-size:12px; font-weight:normal; color:#888888;">版本 %s</div>`,
+		appDisplayName, version.Full)
+	qt.QMessageBox_About(mw.window.QWidget, "About "+appDisplayName, text)
 }
 
 // showSettingsWindow 显示设置对话框，允许用户配置API参数和翻译选项
@@ -809,6 +835,9 @@ func (mw *MainWindow) loadConfigToSettings() {
 // main 函数是程序的入口点
 func main() {
 	app := qt.NewQApplication(os.Args)
+
+	qt.QCoreApplication_SetApplicationName(appDisplayName)
+	qt.QCoreApplication_SetApplicationVersion(version.Full)
 
 	// 根据系统是否为 macOS 决定是否使用嵌入式样式
 	useEmbeddedStyle = runtime.GOOS != "darwin"

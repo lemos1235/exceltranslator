@@ -11,7 +11,7 @@ func TestNormalizeBaseURL(t *testing.T) {
 		"https://api.deepseek.com/responses":        "https://api.deepseek.com/",
 		"https://api.deepseek.com":                  "https://api.deepseek.com/",
 		"https://api.deepseek.com/":                 "https://api.deepseek.com/",
-		"  https://api.openai.com/v1/completions  ":    "https://api.openai.com/v1/",
+		"  https://api.openai.com/v1/completions  ": "https://api.openai.com/v1/",
 		"": "",
 	}
 	for in, want := range cases {

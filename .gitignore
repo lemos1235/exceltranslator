@@ -34,3 +34,6 @@ demo/
 # 开发工具
 .idea/
 .vscode/
+
+# 版本号
+/VERSION

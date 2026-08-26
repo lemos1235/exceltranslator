@@ -36,6 +36,8 @@ type TranslationCallbacks struct {
 	// OnProgress 上报单个内部文件（如某个 sheet / slide 的 XML）的进度
 	OnProgress func(phase string, done, total int)
 	// OnOverallProgress 上报整个文件的总体进度，需先调用 SetTotalTexts 设置总数。
+	// 该回调在锁内调用以保证 done 单调不回退，实现方应尽快返回，
+	// 不要在其中做阻塞操作（如阻塞式的 UI 线程往返），否则会拖慢并发翻译。
 	// 若未设置总数，total 为 0，消费者应据此跳过更新而非计算百分比。
 	OnOverallProgress func(done, total int)
 	OnError           func(stage string, err error)

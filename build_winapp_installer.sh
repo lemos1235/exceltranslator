@@ -90,8 +90,13 @@ echo ">>> NSIS 脚本: $NSI_SCRIPT"
 echo ""
 
 echo ">>> 编译安装程序..."
+# 读取 build_winapp_embedded.sh 递增后的版本号，传给 NSIS
+source "$(dirname "$0")/version.sh"
+read_version
+echo ">>> 安装程序版本: $SHORT_VERSION.$BUILD_NUMBER"
+
 # 使用 MSYS_NO_PATHCONV 防止 Git Bash 转换路径
-MSYS_NO_PATHCONV=1 makensis /INPUTCHARSET UTF8 "$NSI_SCRIPT"
+MSYS_NO_PATHCONV=1 makensis /INPUTCHARSET UTF8 -DAPP_VERSION="$SHORT_VERSION.$BUILD_NUMBER" "$NSI_SCRIPT"
 
 # =============================================================================
 # 完成

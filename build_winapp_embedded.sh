@@ -13,6 +13,10 @@ OUTDIR=out/windows
 SRCDIR=cmd/qt
 ICON=icon.ico
 
+# 递增版本号末位发布号（1.0.0+1 -> 1.0.0+2）
+source "$(dirname "$0")/version.sh"
+bump_version
+
 # =============================================================================
 # 环境检测
 # =============================================================================
@@ -76,22 +80,12 @@ mkdir -p "$OUTDIR"
 mkdir -p "$BINDIR"
 
 # =============================================================================
-# 嵌入图标
+# 嵌入图标与版本信息
 # =============================================================================
 
-# 检查并安装 rsrc 工具（用于嵌入图标）
-if ! command -v rsrc &> /dev/null; then
-    echo ">>> 安装 rsrc 工具..."
-    go install github.com/akavel/rsrc@latest
-fi
-
-# 使用 rsrc 将图标嵌入到 .syso 文件
+# 生成 Windows 资源文件（图标 + 版本信息）
 if [ -f "$ICON" ]; then
-    echo ">>> 嵌入图标到可执行文件..."
-    rsrc -ico "$ICON" -o "$SRCDIR/rsrc_windows_amd64.syso"
-    if [ $? -ne 0 ]; then
-        echo "警告: 图标嵌入失败，继续编译..."
-    fi
+    generate_win_syso "$ICON" "$SRCDIR/rsrc_windows_amd64.syso" "$NAME" || true
 fi
 
 # =============================================================================
@@ -99,7 +93,7 @@ fi
 # =============================================================================
 
 echo ">>> 编译 Go 二进制..."
-CGO_ENABLED=1 go build -ldflags "-s -w -H windowsgui" -o "$BINDIR/$NAME.exe" ./$SRCDIR
+CGO_ENABLED=1 go build -ldflags "-s -w -H windowsgui $(version_ldflags)" -o "$BINDIR/$NAME.exe" ./$SRCDIR
 
 BUILD_RESULT=$?
 
