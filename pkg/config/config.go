@@ -50,9 +50,9 @@ type WindowConfig struct {
 func DefaultConfig() *AppConfig {
 	return &AppConfig{
 		LLM: LLMConfig{
-			BaseURL: "https://apis.iflow.cn/v1/chat/completions",
+			BaseURL: "https://api.deepseek.com",
 			APIKey:  "",
-			Model:   "iflow-rome-30ba3b",
+			Model:   "deepseek-v4-flash",
 			Prompt:  "你是专业翻译引擎。请将待翻译文本翻译为简体中文。保留原文中的数字、字母、占位符、标点和换行。若原文已经是中文则原样返回。",
 		},
 		Translation: TranslationConfig{
@@ -75,6 +75,9 @@ func (cfg *AppConfig) Normalize() {
 	if cfg.Translation.MaxConcurrentRequests <= 0 {
 		cfg.Translation.MaxConcurrentRequests = DefaultMaxConcurrentRequests
 	}
+	// base_url 不在这里收敛：那是 SDK 的路径拼接约定，属于 llmservice 的职责，
+	// 由 NewLLMService 在用的时候归一。config 若反过来 import llmservice，
+	// llmservice 将来读配置就会形成 import cycle。
 }
 
 // getConfigPath returns the full path to the configuration file.
@@ -126,6 +129,8 @@ func Save(cfg *AppConfig) error {
 	if err != nil {
 		return err
 	}
+
+	cfg.Normalize()
 
 	data, err := toml.Marshal(cfg)
 	if err != nil {
