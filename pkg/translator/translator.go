@@ -22,12 +22,24 @@ type Translator interface {
 	TranslateFileTexts(fileName string, texts []string) ([]string, error)
 }
 
+// TotalProgressSetter 由支持整体进度上报的翻译器实现。
+// FileProcessor 在开始翻译前告知全部待翻译条目总数，
+// 使翻译器能够在逐个内部文件进度之外，额外上报整个文件的总体进度。
+type TotalProgressSetter interface {
+	// SetTotalTexts 设置本次任务待翻译条目的总数，需在翻译开始前调用
+	SetTotalTexts(total int)
+}
+
 // TranslationCallbacks 定义翻译流程中的回调
 type TranslationCallbacks struct {
 	OnTranslated func(original, translated string)
-	OnProgress   func(phase string, done, total int)
-	OnError      func(stage string, err error)
-	OnComplete   func(err error)
+	// OnProgress 上报单个内部文件（如某个 sheet / slide 的 XML）的进度
+	OnProgress func(phase string, done, total int)
+	// OnOverallProgress 上报整个文件的总体进度，需先调用 SetTotalTexts 设置总数。
+	// 若未设置总数，total 为 0，消费者应据此跳过更新而非计算百分比。
+	OnOverallProgress func(done, total int)
+	OnError           func(stage string, err error)
+	OnComplete        func(err error)
 }
 
 // LocalTranslator 封装翻译引擎和上下文，负责执行翻译操作
@@ -38,6 +50,27 @@ type LocalTranslator struct {
 	cache         map[string]string
 	mu            sync.RWMutex
 	maxConcurrent int
+
+	// 整体进度：totalTexts 为全部内部文件的待翻译条目总数，overallDone 为已完成数。
+	// overallMu 保护回调的上报顺序，overallReported 记录已上报的最大值，
+	// 避免并发下先到的大序号被后到的小序号覆盖，导致进度条回退。
+	totalTexts      int64
+	overallDone     int64
+	overallMu       sync.Mutex
+	overallReported int
+}
+
+// SetTotalTexts 设置本次任务待翻译条目的总数，并重置已完成计数。
+func (t *LocalTranslator) SetTotalTexts(total int) {
+	if total < 0 {
+		total = 0
+	}
+	atomic.StoreInt64(&t.totalTexts, int64(total))
+	atomic.StoreInt64(&t.overallDone, 0)
+
+	t.overallMu.Lock()
+	t.overallReported = 0
+	t.overallMu.Unlock()
 }
 
 // NewTranslator 创建一个新的 LocalTranslator 实例
@@ -106,11 +139,29 @@ func (t *LocalTranslator) TranslateFileTexts(fileName string, texts []string) ([
 	)
 
 	reportProgress := func() {
-		if t.callbacks.OnProgress == nil {
+		current := int(atomic.AddInt64(&done, 1))
+		if t.callbacks.OnProgress != nil {
+			t.callbacks.OnProgress(fileName, current, totalItems)
+		}
+
+		if t.callbacks.OnOverallProgress == nil {
 			return
 		}
-		current := int(atomic.AddInt64(&done, 1))
-		t.callbacks.OnProgress(fileName, current, totalItems)
+
+		overallTotal := int(atomic.LoadInt64(&t.totalTexts))
+		overallCurrent := int(atomic.AddInt64(&t.overallDone, 1))
+		if overallTotal > 0 && overallCurrent > overallTotal {
+			overallCurrent = overallTotal
+		}
+
+		// 在锁内上报，保证 done 单调不回退（未设置总数时 overallTotal 为 0，交由消费者处理）
+		t.overallMu.Lock()
+		defer t.overallMu.Unlock()
+		if overallCurrent <= t.overallReported {
+			return
+		}
+		t.overallReported = overallCurrent
+		t.callbacks.OnOverallProgress(overallCurrent, overallTotal)
 	}
 
 	fail := func(err error) {

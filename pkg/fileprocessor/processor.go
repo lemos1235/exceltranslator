@@ -126,6 +126,15 @@ func (fp *FileProcessor) ProcessFileNew(inputPath string, outputPath string, tra
 	}
 
 	// 4. Step 2: Execute Translation
+	// 先统计全部内部文件的待翻译条目总数，用于上报整个文件的总体进度
+	if setter, ok := trans.(translator.TotalProgressSetter); ok {
+		totalTexts := 0
+		for i := range docs {
+			totalTexts += len(docs[i].texts)
+		}
+		setter.SetTotalTexts(totalTexts)
+	}
+
 	for i := range docs {
 		doc := &docs[i]
 		fp.logger.Tracef("Translating data for: %s", doc.xmlType)

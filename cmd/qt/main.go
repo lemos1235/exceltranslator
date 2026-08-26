@@ -485,8 +485,12 @@ func (mw *MainWindow) startTranslation() {
 					mw.addLog(fmt.Sprintf("%s -> %s", original, translated))
 				})
 			},
-			OnProgress: func(phase string, done, total int) {
+			// 进度条展示整个文件的总体进度，避免每个内部文件都从 0 重新开始
+			OnOverallProgress: func(done, total int) {
 				mainthread.Wait(func() {
+					if total <= 0 {
+						return
+					}
 					progress := done * 100 / total
 					if progress > 100 {
 						progress = 100

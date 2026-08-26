@@ -14,9 +14,12 @@ import (
 // TranslationCallbacks 定义翻译流程中的回调。
 type TranslationCallbacks struct {
 	OnTranslated func(original, translated string)
-	OnProgress   func(phase string, done, total int)
-	OnError      func(stage string, err error)
-	OnComplete   func(err error)
+	// OnProgress 上报单个内部文件（sheet/slide 等）的翻译进度
+	OnProgress func(phase string, done, total int)
+	// OnOverallProgress 上报整个文件的总体翻译进度
+	OnOverallProgress func(done, total int)
+	OnError           func(stage string, err error)
+	OnComplete        func(err error)
 }
 
 // RunTranslation 执行翻译流程，通过回调报告状态。
@@ -48,10 +51,11 @@ func RunTranslationWithConfig(ctx context.Context, inputFile, outputFile string,
 
 	// Create LocalTranslator with context, engine, and callbacks
 	translatorCallbacks := translator.TranslationCallbacks{
-		OnTranslated: cb.OnTranslated,
-		OnProgress:   cb.OnProgress,
-		OnError:      cb.OnError,
-		OnComplete:   cb.OnComplete,
+		OnTranslated:      cb.OnTranslated,
+		OnProgress:        cb.OnProgress,
+		OnOverallProgress: cb.OnOverallProgress,
+		OnError:           cb.OnError,
+		OnComplete:        cb.OnComplete,
 	}
 	trans := translator.NewTranslator(ctx, llmService, translatorCallbacks, cfg.Translation.MaxConcurrentRequests)
 

@@ -183,3 +183,106 @@ func TestNewTranslator_InvalidMaxConcurrent(t *testing.T) {
 		t.Fatalf("maxConcurrent=%d, want 1", tr.maxConcurrent)
 	}
 }
+
+func TestOverallProgressAcrossFiles(t *testing.T) {
+	engine := &mockEngine{}
+	var (
+		mu      sync.Mutex
+		overall [][2]int
+	)
+
+	trans := NewTranslator(context.Background(), engine, TranslationCallbacks{
+		OnOverallProgress: func(done, total int) {
+			mu.Lock()
+			defer mu.Unlock()
+			overall = append(overall, [2]int{done, total})
+		},
+	}, 2)
+
+	files := map[string][]string{
+		"xl/worksheets/sheet1.xml": {"a", "b", "c"},
+		"xl/worksheets/sheet2.xml": {"d", "e"},
+	}
+	total := 0
+	for _, texts := range files {
+		total += len(texts)
+	}
+	trans.SetTotalTexts(total)
+
+	for name, texts := range files {
+		if _, err := trans.TranslateFileTexts(name, texts); err != nil {
+			t.Fatalf("TranslateFileTexts(%s) error: %v", name, err)
+		}
+	}
+
+	if len(overall) != total {
+		t.Fatalf("overall callbacks=%d, want %d", len(overall), total)
+	}
+
+	seen := make(map[int]bool, total)
+	for _, p := range overall {
+		if p[1] != total {
+			t.Errorf("overall total=%d, want %d", p[1], total)
+		}
+		if p[0] < 1 || p[0] > total {
+			t.Errorf("overall done=%d out of range", p[0])
+		}
+		if seen[p[0]] {
+			t.Errorf("duplicate overall done=%d", p[0])
+		}
+		seen[p[0]] = true
+	}
+	if !seen[total] {
+		t.Errorf("overall progress never reached %d", total)
+	}
+}
+
+func TestOverallProgressMonotonicAndUnsetTotal(t *testing.T) {
+	// 并发翻译时，整体进度不应回退
+	engine := &mockEngine{delay: time.Millisecond}
+	var (
+		mu   sync.Mutex
+		last int
+	)
+	trans := NewTranslator(context.Background(), engine, TranslationCallbacks{
+		OnOverallProgress: func(done, total int) {
+			mu.Lock()
+			defer mu.Unlock()
+			if done <= last {
+				t.Errorf("overall progress went backwards: %d after %d", done, last)
+			}
+			last = done
+		},
+	}, 8)
+
+	texts := make([]string, 64)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("text-%d", i)
+	}
+	trans.SetTotalTexts(len(texts))
+	if _, err := trans.TranslateFileTexts("sheet.xml", texts); err != nil {
+		t.Fatalf("TranslateFileTexts error: %v", err)
+	}
+	if last != len(texts) {
+		t.Errorf("final overall progress=%d, want %d", last, len(texts))
+	}
+
+	// 未调用 SetTotalTexts 时，total 应为 0 而不是伪装成已完成数
+	var totals []int
+	trans2 := NewTranslator(context.Background(), engine, TranslationCallbacks{
+		OnOverallProgress: func(done, total int) {
+			totals = append(totals, total)
+		},
+	}, 1)
+	if _, err := trans2.TranslateFileTexts("sheet.xml", []string{"x", "y"}); err != nil {
+		t.Fatalf("TranslateFileTexts error: %v", err)
+	}
+	if len(totals) != 2 {
+		t.Fatalf("overall callbacks=%d, want 2", len(totals))
+	}
+	for i, total := range totals {
+		if total != 0 {
+			t.Errorf("totals[%d]=%d, want 0 when total is unset", i, total)
+		}
+	}
+}
